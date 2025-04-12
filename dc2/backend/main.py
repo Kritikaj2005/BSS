@@ -6,90 +6,153 @@ import numpy as np
 import soundfile as sf
 from sklearn.decomposition import FastICA
 from typing import List
+import matplotlib.pyplot as plt
 
 app = FastAPI()
 
-# Set paths relative to backend/
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # This already points to backend/
+# Paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 OUTPUT_DIR = os.path.join(BASE_DIR, "outputs")
+GRAPH_DIR = os.path.join(BASE_DIR, "graphs")
 
 # Ensure directories exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(GRAPH_DIR, exist_ok=True)
 
-# Allow all origins for simplicity
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 @app.post("/upload/")
 async def upload_files(files: List[UploadFile] = File(...)):
-    # Clear previous uploads
-    for existing_file in os.listdir(UPLOAD_DIR):
-        file_path = os.path.join(UPLOAD_DIR, existing_file)
-        if os.path.isfile(file_path):
-            os.remove(file_path)
+    # Clear old uploads
+    for f in os.listdir(UPLOAD_DIR):
+        os.remove(os.path.join(UPLOAD_DIR, f))
 
-    # Save all uploaded files
+    # Save new files
     file_names = []
     for file in files:
-        file_path = os.path.join(UPLOAD_DIR, file.filename)
-        file_names.append(file.filename)
-        with open(file_path, "wb") as buffer:
+        path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(path, "wb") as buffer:
             buffer.write(await file.read())
+        file_names.append(file.filename)
 
-    # Process the audio files
+    # Process audio
     process_audio(file_names)
 
-    return {"message": f"{len(files)} files uploaded and processing complete!"}
+    return {"message": f"{len(files)} files uploaded and processed!"}
+
+def generate_and_save_graphs(data1, data2, is_separated=False):
+    data1 = data1 - np.mean(data1)
+    data1 = data1 / np.max(np.abs(data1))
+    data2 = data2 - np.mean(data2)
+    data2 = data2 / np.max(np.abs(data2))
+
+    graph_1_filename = "separated_signal_1.png" if is_separated else "mixed_signal_1.png"
+    graph_2_filename = "separated_signal_2.png" if is_separated else "mixed_signal_2.png"
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(data1)
+    plt.title(f"Signal 1{' Separated' if is_separated else ''}")
+    plt.xlabel("Time")
+    plt.ylabel("Amplitude")
+    plt.tight_layout()
+    plt.savefig(os.path.join(GRAPH_DIR, graph_1_filename))
+    plt.close()
+
+    plt.figure(figsize=(10, 4))
+    plt.plot(data2)
+    plt.title(f"Signal 2{' Separated' if is_separated else ''}")
+    plt.xlabel("Time")
+    plt.ylabel("Amplitude")
+    plt.tight_layout()
+    plt.savefig(os.path.join(GRAPH_DIR, graph_2_filename))
+    plt.close()
+
+def generate_comparison_graphs(mixed1, mixed2, separated):
+    def normalize(signal):
+        signal = signal - np.mean(signal)
+        return signal / np.max(np.abs(signal))
+
+    mixed1 = normalize(mixed1)
+    mixed2 = normalize(mixed2)
+    sep1 = normalize(separated[:, 0])
+    sep2 = normalize(separated[:, 1])
+
+    plt.figure(figsize=(12, 5))
+    plt.plot(mixed1, label='Mixed Signal 1', color='red', alpha=0.6)
+    plt.plot(sep1, label='Separated Signal 1', color='blue', linestyle='dashed')
+    plt.title("Comparison of Mixed and Separated Signals (Channel 1)")
+    plt.xlabel("Time")
+    plt.ylabel("Amplitude")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(GRAPH_DIR, "comparison_signal_1.png"))
+    plt.close()
+
+    plt.figure(figsize=(12, 5))
+    plt.plot(mixed2, label='Mixed Signal 2', color='green', alpha=0.6)
+    plt.plot(sep2, label='Separated Signal 2', color='purple', linestyle='dashed')
+    plt.title("Comparison of Mixed and Separated Signals (Channel 2)")
+    plt.xlabel("Time")
+    plt.ylabel("Amplitude")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(GRAPH_DIR, "comparison_signal_2.png"))
+    plt.close()
 
 def process_audio(file_names):
-    # Assuming exactly 2 mixed audio files are uploaded
     if len(file_names) != 2:
         raise ValueError("Expected exactly 2 audio files for separation.")
-    
+
     mixed_signals = []
 
     for filename in file_names:
-        input_file = os.path.join(UPLOAD_DIR, filename)
-        # Read the mixed audio file
-        data, samplerate = sf.read(input_file)
+        path = os.path.join(UPLOAD_DIR, filename)
+        data, samplerate = sf.read(path)
         mixed_signals.append(data)
 
-    # Stack the mixed signals to form a 2D array for ICA
     mixed_signals = np.array(mixed_signals)
 
-    # Apply FastICA for separating the mixed signals
+    generate_and_save_graphs(mixed_signals[0], mixed_signals[1])
+
     ica = FastICA(n_components=2)
-    separated_signals = ica.fit_transform(mixed_signals.T)  # Transpose to fit the expected shape
+    separated_signals = ica.fit_transform(mixed_signals.T)
 
-    # Save the separated signals to output directory
-    output_files = []
     for i in range(separated_signals.shape[1]):
-        output_filename = f"separated_{i+1}.wav"
-        output_path = os.path.join(OUTPUT_DIR, output_filename)
+        output_path = os.path.join(OUTPUT_DIR, f"separated_{i+1}.wav")
         sf.write(output_path, separated_signals[:, i], samplerate)
-        output_files.append(output_filename)
 
-    return output_files
+    generate_and_save_graphs(separated_signals[:, 0], separated_signals[:, 1], is_separated=True)
+
+    generate_comparison_graphs(mixed_signals[0], mixed_signals[1], separated_signals)
 
 @app.get("/output/separated_1.wav")
 async def get_audio_1():
-    audio_file_path = os.path.join(OUTPUT_DIR, "separated_1.wav")
-    if os.path.exists(audio_file_path):
-        return FileResponse(audio_file_path)
-    else:
-        return {"error": "File not found"}
+    path = os.path.join(OUTPUT_DIR, "separated_1.wav")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return {"error": "File not found"}
 
 @app.get("/output/separated_2.wav")
 async def get_audio_2():
-    audio_file_path = os.path.join(OUTPUT_DIR, "separated_2.wav")
-    if os.path.exists(audio_file_path):
-        return FileResponse(audio_file_path)
-    else:
-        return {"error": "File not found"}
+    path = os.path.join(OUTPUT_DIR, "separated_2.wav")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return {"error": "File not found"}
+
+@app.get("/graphs/{filename}")
+async def get_graph(filename: str):
+    path = os.path.join(GRAPH_DIR, filename)
+    if os.path.exists(path):
+        return FileResponse(path)
+    return {"error": "Graph not found"}
