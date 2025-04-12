@@ -20,4 +20,22 @@ input[type="range"]::-moz-range-thumb {
   cursor: pointer;
 }
 
+.output-container {
+  padding: 20px;
+}
+
+.audio-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 10px 0;
+}
+
+.audio-item p {
+  margin: 0 10px;
+}
+
+audio {
+  width: 250px;
+}
 

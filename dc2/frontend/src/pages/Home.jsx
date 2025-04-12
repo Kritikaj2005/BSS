@@ -2,10 +2,10 @@ import React, { useRef } from "react";
 import Input from "../components/Input";
 import Navbar from "../components/Navbar"; 
 
-
 function Home() {
   const inputSectionRef = useRef(null);
   const homeSectionRef = useRef(null);
+  const outputSectionRef = useRef(null);
 
   const scrollToInput = () => {
     inputSectionRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -15,10 +15,15 @@ function Home() {
     homeSectionRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  const scrollToOutput = () => {
+    outputSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   return (
     <div className="w-full min-h-screen bg-black flex flex-col">
-            {/* Navbar */}
-            <Navbar scrollToInput={scrollToInput} scrollToHome={scrollToHome} />
+      {/* Navbar */}
+      <Navbar scrollToInput={scrollToInput} scrollToHome={scrollToHome} />
+      
       {/* Hero Section */}
       <div className="w-full h-screen flex flex-col justify-center items-center bg-gradient-to-b from-black via-green-950 to-black text-white text-center px-6">
         <h1 className="text-4xl md:text-6xl font-extrabold drop-shadow-lg">
@@ -40,7 +45,7 @@ function Home() {
         ref={inputSectionRef}
         className="w-screen min-h-screen flex flex-col justify-center items-center bg-gradient-to-b from-black via-green-950 to-black text-white py-12"
       >
-        <Input />
+        <Input scrollToOutput={scrollToOutput} />
       </div>
     </div>
   );
