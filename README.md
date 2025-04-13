@@ -45,7 +45,7 @@ This app visually and audibly demonstrates FastICA in action.
 ## 📦 Folder Structure
 
 ```
-audio-separation-app/
+dc2/
 ├── backend/
 │   ├── main.py              # FastAPI app for processing and graph generation
 │   ├── uploads/             # Temporary uploaded audio files
