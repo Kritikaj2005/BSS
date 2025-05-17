@@ -1,5 +1,7 @@
 fastapi==0.115.12
 uvicorn==0.34.0
-soundfile==0.10.0
-scikit-learn==1.2.2
+numpy==2.2.5
+soundfile==0.12.1
+scikit-learn==1.6.1
+matplotlib
 python-multipart==0.0.5
